@@ -4,6 +4,7 @@ import Login from './components/Login';
 import Signup from './components/Signup';
 import Dashboard from './components/Dashboard';
 import Chatroom from './components/Chatroom';
+import AdminDashboard from './components/AdminDashboard';
 import PrivateRoute from './components/PrivateRoute';
 
 function App() {
@@ -27,6 +28,14 @@ function App() {
               element={
                 <PrivateRoute>
                   <Chatroom />
+                </PrivateRoute>
+              } 
+            />
+            <Route 
+              path="/admin" 
+              element={
+                <PrivateRoute>
+                  <AdminDashboard />
                 </PrivateRoute>
               } 
             />

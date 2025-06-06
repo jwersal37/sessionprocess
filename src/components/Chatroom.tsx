@@ -4,6 +4,8 @@ import { ref, push, onValue, off, remove } from 'firebase/database';
 import { database } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { validateMessage, checkRateLimit, sanitizeMessage } from '../utils/messageValidation';
+import { MessageModerator } from '../utils/messageModerator';
+import { UserManager } from '../utils/userManager';
 
 interface Message {
   id: string;
@@ -20,6 +22,20 @@ export default function Chatroom() {
   const { currentUser } = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesRef = ref(database, 'messages');
+  const [moderator] = useState(() => new MessageModerator());
+  const [userManager] = useState(() => new UserManager());
+
+  // Initialize user profile and moderation rules on component mount
+  useEffect(() => {
+    if (currentUser) {
+      userManager.initializeUser(
+        currentUser.uid, 
+        currentUser.email!, 
+        currentUser.displayName || undefined
+      );
+    }
+    moderator.initializeRules();
+  }, [moderator, userManager, currentUser]);
 
   // Debug: Log current user status
   useEffect(() => {
@@ -70,6 +86,14 @@ export default function Chatroom() {
       return;
     }
 
+    // Advanced moderation check
+    const moderationResult = moderator.moderateMessage(newMessage, currentUser.uid, '');
+    
+    if (moderationResult.shouldDelete) {
+      alert('Your message contains content that violates our community guidelines and cannot be sent.');
+      return;
+    }
+
     try {
       setLoading(true);
       console.log('Sending message...', { user: currentUser.email, text: newMessage });
@@ -77,12 +101,41 @@ export default function Chatroom() {
       // Sanitize the message before sending
       const sanitizedMessage = sanitizeMessage(newMessage);
       
-      await push(messagesRef, {
+      const messageData = {
         text: sanitizedMessage,
         user: currentUser.displayName || currentUser.email || 'Anonymous',
         userId: currentUser.uid,
         timestamp: Date.now()
+      };
+
+      const messageRef = await push(messagesRef, messageData);
+      const messageId = messageRef.key;
+
+      // Track user activity and increment message count
+      await userManager.incrementMessageCount(currentUser.uid);
+      await userManager.logActivity(currentUser.uid, 'message_sent', {
+        messageId,
+        messageLength: sanitizedMessage.length
       });
+
+      // If message should be flagged but not deleted, flag it for review
+      if (moderationResult.shouldFlag && messageId) {
+        await moderator.flagMessage(
+          {
+            id: messageId,
+            ...messageData
+          },
+          moderationResult.flagReason!,
+          moderationResult.severity!,
+          undefined, // No manual flagger (auto-flagged)
+          true // Auto-flagged
+        );
+        
+        // Notify user their message was flagged (optional)
+        if (moderationResult.severity === 'medium' || moderationResult.severity === 'high') {
+          alert('Your message has been sent but flagged for review due to potentially inappropriate content.');
+        }
+      }
       
       setNewMessage('');
       console.log('Message sent successfully');
@@ -93,7 +146,6 @@ export default function Chatroom() {
       setLoading(false);
     }
   };
-
   const handleDeleteMessage = async (messageId: string) => {
     if (!currentUser) {
       console.log('Cannot delete message: user not authenticated');
@@ -104,6 +156,13 @@ export default function Chatroom() {
       console.log('Deleting message...', messageId);
       const messageRef = ref(database, `messages/${messageId}`);
       await remove(messageRef);
+      
+      // Log user activity for message deletion
+      await userManager.logActivity(currentUser.uid, 'message_deleted', {
+        messageId,
+        deletedBy: 'user'
+      });
+      
       console.log('Message deleted successfully');
     } catch (error) {
       console.error('Error deleting message:', error);
