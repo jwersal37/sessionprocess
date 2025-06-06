@@ -20,6 +20,11 @@ export default function Chatroom() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesRef = ref(database, 'messages');
 
+  // Debug: Log current user status
+  useEffect(() => {
+    console.log('Chatroom: Current user:', currentUser ? { uid: currentUser.uid, email: currentUser.email } : 'Not authenticated');
+  }, [currentUser]);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -37,9 +42,7 @@ export default function Chatroom() {
       } else {
         setMessages([]);
       }
-    });
-
-    return () => off(messagesRef, 'value', unsubscribe);
+    });    return () => off(messagesRef, 'value', unsubscribe);
   }, []);
 
   useEffect(() => {
@@ -48,32 +51,46 @@ export default function Chatroom() {
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!newMessage.trim() || !currentUser) return;
+    if (!newMessage.trim() || !currentUser) {
+      console.log('Cannot send message: missing content or user not authenticated');
+      return;
+    }
 
     try {
       setLoading(true);
+      console.log('Sending message...', { user: currentUser.email, text: newMessage });
+      
       await push(messagesRef, {
         text: newMessage,
         user: currentUser.displayName || currentUser.email || 'Anonymous',
         userId: currentUser.uid,
         timestamp: Date.now()
       });
+      
       setNewMessage('');
+      console.log('Message sent successfully');
     } catch (error) {
       console.error('Error sending message:', error);
+      alert('Failed to send message. Please check the console for details.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleDeleteMessage = async (messageId: string) => {
-    if (!currentUser) return;
+    if (!currentUser) {
+      console.log('Cannot delete message: user not authenticated');
+      return;
+    }
     
     try {
+      console.log('Deleting message...', messageId);
       const messageRef = ref(database, `messages/${messageId}`);
       await remove(messageRef);
+      console.log('Message deleted successfully');
     } catch (error) {
       console.error('Error deleting message:', error);
+      alert('Failed to delete message. Please check the console for details.');
     }
   };
 
