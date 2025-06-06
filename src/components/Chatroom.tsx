@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ref, push, onValue, off, remove } from 'firebase/database';
 import { database } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { validateMessage, checkRateLimit, sanitizeMessage } from '../utils/messageValidation';
 
 interface Message {
   id: string;
@@ -47,8 +48,7 @@ export default function Chatroom() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
-  const handleSendMessage = async (e: React.FormEvent) => {
+  }, [messages]);  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!newMessage.trim() || !currentUser) {
@@ -56,12 +56,29 @@ export default function Chatroom() {
       return;
     }
 
+    // Client-side validation
+    const validationResult = validateMessage(newMessage, currentUser.uid);
+    if (!validationResult.isValid) {
+      alert(validationResult.error);
+      return;
+    }
+
+    // Rate limiting check
+    const rateLimitResult = checkRateLimit(currentUser.uid);
+    if (!rateLimitResult.isValid) {
+      alert(rateLimitResult.error);
+      return;
+    }
+
     try {
       setLoading(true);
       console.log('Sending message...', { user: currentUser.email, text: newMessage });
       
+      // Sanitize the message before sending
+      const sanitizedMessage = sanitizeMessage(newMessage);
+      
       await push(messagesRef, {
-        text: newMessage,
+        text: sanitizedMessage,
         user: currentUser.displayName || currentUser.email || 'Anonymous',
         userId: currentUser.uid,
         timestamp: Date.now()
@@ -139,8 +156,7 @@ export default function Chatroom() {
     
     handleSendMessage(syntheticEvent);
   };
-
-  const remainingChars = 1000 - newMessage.length;
+  const remainingChars = 500 - newMessage.length;
   const isOverLimit = remainingChars < 0;
 
   return (
@@ -274,7 +290,7 @@ export default function Chatroom() {
                   }`}
                   disabled={loading}
                   rows={2}
-                  maxLength={1000}
+                  maxLength={500}
                 />
                 <button
                   type="submit"

@@ -1,0 +1,12 @@
+{
+  "rules": {
+    "messages": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$messageId": {
+        ".validate": "newData.hasChildren(['text', 'user', 'userId', 'timestamp']) && newData.child('text').isString() && newData.child('text').val().length <= 500 && newData.child('text').val().length > 0 && newData.child('userId').val() == auth.uid",
+        ".write": "!data.exists() || data.child('userId').val() == auth.uid"
+      }
+    }
+  }
+}
