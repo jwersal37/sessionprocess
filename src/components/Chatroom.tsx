@@ -8,7 +8,7 @@ interface Message {
   id: string;
   text: string;
   user: string;
-  userId: string;
+  userId?: string; // Optional for backward compatibility
   timestamp: number;
 }
 
@@ -119,65 +119,76 @@ export default function Chatroom() {
               <div className="text-center text-gray-500 py-8">
                 No messages yet. Be the first to say something!
               </div>
-            ) : (              messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`flex ${
-                    message.userId === currentUser?.uid
-                      ? 'justify-end'
-                      : 'justify-start'
-                  }`}
-                >
+            ) : (              messages.map((message) => {
+                const isOwnMessage = message.userId 
+                  ? message.userId === currentUser?.uid 
+                  : message.user === (currentUser?.displayName || currentUser?.email);
+                
+                return (
                   <div
-                    className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg relative group ${
-                      message.userId === currentUser?.uid
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-white text-gray-900 shadow'
+                    key={message.id}
+                    className={`flex ${
+                      isOwnMessage
+                        ? 'justify-end'
+                        : 'justify-start'
                     }`}
                   >
-                    <div className="text-sm font-medium mb-1">
-                      {message.userId === currentUser?.uid
-                        ? 'You'
-                        : message.user
-                      }
-                    </div>
-                    <div className="break-words pr-6">{message.text}</div>
                     <div
-                      className={`text-xs mt-1 ${
-                        message.userId === currentUser?.uid
-                          ? 'text-indigo-200'
-                          : 'text-gray-500'
+                      className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg relative group ${
+                        isOwnMessage
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-white text-gray-900 shadow'
                       }`}
                     >
-                      {formatTime(message.timestamp)}
-                    </div>
-                    
-                    {/* Delete button - only show for user's own messages */}
-                    {message.userId === currentUser?.uid && (
-                      <button
-                        onClick={() => handleDeleteMessage(message.id)}
-                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1 rounded hover:bg-black hover:bg-opacity-20"
-                        title="Delete message"
+                      <div className="text-sm font-medium mb-1">
+                        {isOwnMessage
+                          ? 'You'
+                          : message.user
+                        }
+                      </div>
+                      <div className="break-words pr-6">{message.text}</div>
+                      <div
+                        className={`text-xs mt-1 ${
+                          isOwnMessage
+                            ? 'text-indigo-200'
+                            : 'text-gray-500'
+                        }`}
                       >
-                        <svg
-                          className="w-4 h-4 text-current"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                          xmlns="http://www.w3.org/2000/svg"
+                        {formatTime(message.timestamp)}
+                      </div>
+                      
+                      {/* Delete button - only show for user's own messages */}
+                      {isOwnMessage && (
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleDeleteMessage(message.id);
+                          }}
+                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1 rounded hover:bg-black hover:bg-opacity-20"
+                          title="Delete message"
+                          type="button"
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                          />
-                        </svg>
-                      </button>
-                    )}
+                          <svg
+                            className="w-4 h-4 text-current"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
             <div ref={messagesEndRef} />
           </div>
