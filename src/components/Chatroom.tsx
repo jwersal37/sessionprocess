@@ -93,13 +93,55 @@ export default function Chatroom() {
       alert('Failed to delete message. Please check the console for details.');
     }
   };
-
   const formatTime = (timestamp: number) => {
-    return new Date(timestamp).toLocaleTimeString([], { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
+    const now = Date.now();
+    const diff = now - timestamp;
+    
+    // Less than 1 minute
+    if (diff < 60000) {
+      return 'just now';
+    }
+    
+    // Less than 1 hour (show minutes)
+    if (diff < 3600000) {
+      const minutes = Math.floor(diff / 60000);
+      return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+    }
+    
+    // Less than 24 hours (show hours)
+    if (diff < 86400000) {
+      const hours = Math.floor(diff / 3600000);
+      return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+    }
+    
+    // Less than 7 days (show days)
+    if (diff < 604800000) {
+      const days = Math.floor(diff / 86400000);
+      return `${days} day${days === 1 ? '' : 's'} ago`;
+    }
+    
+    // Older than 7 days (show date)
+    return new Date(timestamp).toLocaleDateString();
   };
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
+  const handleSubmit = () => {
+    if (!newMessage.trim() || !currentUser || loading || isOverLimit) return;
+    
+    const syntheticEvent = {
+      preventDefault: () => {},
+    } as React.FormEvent;
+    
+    handleSendMessage(syntheticEvent);
+  };
+
+  const remainingChars = 1000 - newMessage.length;
+  const isOverLimit = remainingChars < 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -208,27 +250,41 @@ export default function Chatroom() {
               })
             )}
             <div ref={messagesEndRef} />
-          </div>
-
-          {/* Message Input */}
+          </div>          {/* Message Input */}
           <div className="p-4 bg-white border-t">
-            <form onSubmit={handleSendMessage} className="flex space-x-4">
-              <input
-                type="text"
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                placeholder="Type your message..."
-                className="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                disabled={loading}
-              />
-              <button
-                type="submit"
-                disabled={loading || !newMessage.trim()}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? 'Sending...' : 'Send'}
-              </button>
-            </form>
+            <div className="space-y-2">
+              {/* Character counter */}
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-gray-500">
+                  Press Enter to send, Shift+Enter for new line
+                </span>
+                <span className={`${isOverLimit ? 'text-red-500' : remainingChars < 100 ? 'text-yellow-500' : 'text-gray-500'}`}>
+                  {remainingChars} characters remaining
+                </span>
+              </div>
+              
+              <form onSubmit={handleSendMessage} className="flex space-x-4">
+                <textarea
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Type your message..."
+                  className={`flex-1 border rounded-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 resize-none ${
+                    isOverLimit ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                  disabled={loading}
+                  rows={2}
+                  maxLength={1000}
+                />
+                <button
+                  type="submit"
+                  disabled={loading || !newMessage.trim() || isOverLimit}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium disabled:opacity-50 disabled:cursor-not-allowed self-end"
+                >
+                  {loading ? 'Sending...' : 'Send'}
+                </button>
+              </form>
+            </div>
           </div>
         </div>
 
