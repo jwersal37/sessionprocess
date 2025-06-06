@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import Login from './components/Login';
 import Signup from './components/Signup';
@@ -8,7 +8,7 @@ import PrivateRoute from './components/PrivateRoute';
 
 function App() {
   return (
-    <Router basename="/sessionprocess">
+    <Router>
       <AuthProvider>
         <div className="App">
           <Routes>
