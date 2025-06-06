@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { ref, push, onValue, off } from 'firebase/database';
+import { ref, push, onValue, off, remove } from 'firebase/database';
 import { database } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -8,6 +8,7 @@ interface Message {
   id: string;
   text: string;
   user: string;
+  userId: string;
   timestamp: number;
 }
 
@@ -44,7 +45,6 @@ export default function Chatroom() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
-
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -55,6 +55,7 @@ export default function Chatroom() {
       await push(messagesRef, {
         text: newMessage,
         user: currentUser.displayName || currentUser.email || 'Anonymous',
+        userId: currentUser.uid,
         timestamp: Date.now()
       });
       setNewMessage('');
@@ -62,6 +63,17 @@ export default function Chatroom() {
       console.error('Error sending message:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!currentUser) return;
+    
+    try {
+      const messageRef = ref(database, `messages/${messageId}`);
+      await remove(messageRef);
+    } catch (error) {
+      console.error('Error deleting message:', error);
     }
   };
 
@@ -107,39 +119,62 @@ export default function Chatroom() {
               <div className="text-center text-gray-500 py-8">
                 No messages yet. Be the first to say something!
               </div>
-            ) : (
-              messages.map((message) => (
+            ) : (              messages.map((message) => (
                 <div
                   key={message.id}
                   className={`flex ${
-                    message.user === (currentUser?.displayName || currentUser?.email)
+                    message.userId === currentUser?.uid
                       ? 'justify-end'
                       : 'justify-start'
                   }`}
                 >
                   <div
-                    className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                      message.user === (currentUser?.displayName || currentUser?.email)
+                    className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg relative group ${
+                      message.userId === currentUser?.uid
                         ? 'bg-indigo-600 text-white'
                         : 'bg-white text-gray-900 shadow'
                     }`}
                   >
                     <div className="text-sm font-medium mb-1">
-                      {message.user === (currentUser?.displayName || currentUser?.email)
+                      {message.userId === currentUser?.uid
                         ? 'You'
                         : message.user
                       }
                     </div>
-                    <div className="break-words">{message.text}</div>
+                    <div className="break-words pr-6">{message.text}</div>
                     <div
                       className={`text-xs mt-1 ${
-                        message.user === (currentUser?.displayName || currentUser?.email)
+                        message.userId === currentUser?.uid
                           ? 'text-indigo-200'
                           : 'text-gray-500'
                       }`}
                     >
                       {formatTime(message.timestamp)}
                     </div>
+                    
+                    {/* Delete button - only show for user's own messages */}
+                    {message.userId === currentUser?.uid && (
+                      <button
+                        onClick={() => handleDeleteMessage(message.id)}
+                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1 rounded hover:bg-black hover:bg-opacity-20"
+                        title="Delete message"
+                      >
+                        <svg
+                          className="w-4 h-4 text-current"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
+                      </button>
+                    )}
                   </div>
                 </div>
               ))
